@@ -1,0 +1,3 @@
+#!/bin/sh
+# has to be called from directory ../
+scala -cp out top.L1Compiler $@

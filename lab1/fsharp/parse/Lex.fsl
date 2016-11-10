@@ -1,0 +1,171 @@
+/// <summary>
+/// Lab 1 Compiler: Lexer
+///
+/// Lexes forward compatible fragment of C0.
+/// </summary>
+/// <remarks>
+/// Author: Ben Hamme (bhamme)
+/// Author: Adam Mihalcin (amihalci)
+/// 15-411 Fall 2012
+///
+/// Update this file to lex the necessary keywords and other tokens
+/// in order to make the grammar forward compatible with C0. 
+///
+/// This file is intended to replace l1.lex from the SML starter
+/// code, and we used the fslex documentation at
+/// http://fsharppowerpack.codeplex.com/wikipage?title=FsLex+Documentation
+/// in writing this file.  We also used the Parsed Language starter
+/// template, referenced from the fslex documentation page and
+/// available at http://goo.gl/QAZfr.
+/// </remarks>
+
+{
+
+module Lab1.Parse.Lex
+
+open System
+open Microsoft.FSharp.Text.Lexing
+
+open Lab1.Util
+
+open Lab1.Parse.Parser
+
+module S = Symbol
+
+let setInitialPos (lexbuf : LexBuffer<char>) filename =
+    lexbuf.EndPos <- { pos_bol = 0;
+                        pos_fname = filename; 
+                        pos_cnum = 0;
+                        pos_lnum = 1 }
+
+let line (lexbuf : LexBuffer<char>) =
+    lexbuf.EndPos <- lexbuf.EndPos.NextLine
+
+let lexeme = LexBuffer<char>.LexemeString
+
+let errorOut (lexbuf:LexBuffer<char>) (message:string) =
+    failwith(sprintf "%s:%d,%d: %s"
+                        lexbuf.StartPos.FileName
+                        lexbuf.StartPos.Line
+                        lexbuf.StartPos.Column
+                        message)
+
+let parseDecimalInt lexbuf =
+    let num = lexeme lexbuf
+    match num with
+    | "2147483648" -> Int32.MinValue // 2**31 maps to -(2**31)
+    | _ ->
+        try
+            Int32.Parse num
+        with
+          | :? OverflowException ->
+            failwith(sprintf "The number %s is out of the valid range" num)
+
+let parseHexInt lexbuf =
+    let num = (lexeme lexbuf).Substring(2) // Take off the 0x or 0X
+    try
+        Int32.Parse(num, System.Globalization.NumberStyles.HexNumber)
+    with
+      | :? OverflowException ->
+        let fullnum = lexeme lexbuf
+        failwith(sprintf "The number %s is out of the valid range" fullnum)
+
+}
+
+let letter = ['A'-'Z' 'a'-'z' '_']
+let digit = ['0'-'9']
+let hexdigit = ['0'-'9' 'a'-'f' 'A'-'F']
+
+let whitespace = [' ' '\t' '\u000b' '\r' '\n' '\u000c']
+// 000b = vertical tab ('\v' in C)
+// 000c = form feed ('\f' in C)
+
+let newline = ('\n')
+
+rule token = parse
+| newline           { line lexbuf; token lexbuf }
+| whitespace        { token lexbuf }
+
+| "{"               { LBRACE }
+| "}"               { RBRACE }
+| "("               { LPAREN }
+| ")"               { RPAREN }
+
+| ";"               { SEMI }
+
+| "="               { ASSIGN }
+| "+="              { PLUSEQ }
+| "-="              { MINUSEQ }
+| "*="              { STAREQ }
+| "/="              { SLASHEQ }
+| "%="              { PERCENTEQ }
+
+| "++"              { errorOut lexbuf "Postfix increment not supported" }
+| "--"              { errorOut lexbuf "Postfix decrement not supported" }
+
+| "+"               { PLUS }
+| "-"               { MINUS }
+| "*"               { STAR }
+| "/"               { SLASH }
+| "%"               { PERCENT }
+
+| "return"          { RETURN }
+| "int"             { INT }
+| "main"            { MAIN }
+
+// Future keywords
+| "struct"
+| "typedef"
+| "if"
+| "else"
+| "while"
+| "for"
+| "continue"
+| "break"
+| "assert"
+| "true"
+| "false"
+| "NULL"
+| "alloc"
+| "alloc_array"
+| "bool"
+| "void"
+| "char"
+| "string"          {
+                    lexeme lexbuf
+                    |> sprintf "Cannot use reserved word %s"
+                    |> errorOut lexbuf
+                    }
+
+// decnum
+| "0"               { NUM(0) }
+| ['1'-'9']digit*   { NUM(parseDecimalInt lexbuf) }
+
+// hexnum
+| "0"('x' | 'X')hexdigit+   { NUM(parseHexInt lexbuf) }
+
+| letter(letter|digit)*     { IDENT(S.symbol(lexeme lexbuf)) }
+
+| "/*"              { comment 1 lexbuf }
+| "*/"              { errorOut lexbuf "Closing comment without opening" }
+
+| "//"              { commentLine lexbuf }
+| "#"               { errorOut lexbuf "Cannot use # for comments" }
+
+| eof               { EOF }
+
+and comment depth = parse
+| "/*"              { comment (depth + 1) lexbuf }
+| "*/"              {
+                    if depth > 1 then comment (depth - 1) lexbuf
+                    else token lexbuf
+                    }
+| newline           { line lexbuf; comment depth lexbuf }
+| eof               { EOF }
+| _                 { comment depth lexbuf }
+
+and commentLine = parse
+| newline           { line lexbuf; token lexbuf }
+| eof               { EOF }
+| _                 { commentLine lexbuf }
+

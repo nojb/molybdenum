@@ -1,0 +1,4 @@
+.cm
+parse/*.grm.*
+parse/*.lex.*
+bin/*.heap*

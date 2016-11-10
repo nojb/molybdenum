@@ -1,0 +1,129 @@
+/// <summary>
+/// Lab 1 Compiler: Parser
+///
+/// Parses forward compatible fragment of C0.
+/// </summary>
+/// <remarks>
+/// Author: Ben Hamme (bhamme)
+/// Author: Adam Mihalcin (amihalci)
+/// 15-411 Fall 2012
+///
+/// This file is intended to replace l1.grm from the SML starter code.
+/// When learning how to use fsyaxx, we used the Parsed Language starter
+/// template, referenced from the fsyacc documentation page and
+/// available at http://goo.gl/QAZfr.
+/// </remarks>
+
+%{
+
+open Microsoft.FSharp.Text.Lexing
+open Microsoft.FSharp.Text.Parsing
+
+open Lab1.Util
+
+module A = Ast
+module S = Symbol
+
+let makeExt (state : IParseState) tokenIndices =
+    let minIndex = List.min tokenIndices
+    let maxIndex = List.max tokenIndices
+    let startPos = state.InputStartPosition minIndex
+    let endPos = state.InputEndPosition maxIndex
+    match (startPos.AbsoluteOffset, endPos.AbsoluteOffset) with
+    | (0, 0) -> None
+    | _ -> Some((startPos.Line, startPos.Column),
+                (endPos.Line, endPos.Column),
+                startPos.FileName)
+
+let mark e state tokenIndices =
+    A.Marked(Mark.mark' e (makeExt state tokenIndices))
+
+let marks e state tokenIndices =
+    A.Markeds(Mark.mark' e (makeExt state tokenIndices))
+
+// syntactically expands a compound assignment operator
+let expandAsnop id asnop exp state tokenIndices =
+    match asnop with
+    | None -> A.Assign(id, exp)
+    | Some oper ->
+        let markedExp =
+            mark (A.OpExp(oper, [A.Var id; exp])) state tokenIndices
+        A.Assign(id, markedExp)
+
+%}
+
+%start program
+
+%token LBRACE RBRACE LPAREN RPAREN SEMI
+%token ASSIGN PLUSEQ MINUSEQ STAREQ SLASHEQ PERCENTEQ
+%token PLUS MINUS STAR SLASH PERCENT
+%token RETURN INT MAIN 
+%token <System.Int32> NUM
+%token <Lab1.Util.Symbol.symbol> IDENT
+%token EOF 
+%token UNARY ASNOP
+// UNARY and ASNOP are dummy terminals.
+// We need dummy terminals if we wish to assign a precedence to a rule
+// that does not correspond to the precedence of the rightmost terminal
+// in that rule.
+// Implicit in this is that precedence can only be inferred for
+// terminals. Therefore, don't try to assign precedence to "rules"
+
+%type <Ast.program> program
+
+%left PLUS MINUS
+%left STAR SLASH PERCENT
+%right UNARY
+%left LPAREN
+
+%%
+
+program:
+| INT MAIN LPAREN RPAREN LBRACE stmts RBRACE EOF    { $6 }
+
+stmts:
+|                       { [] }
+| stmt stmts            { $1 @ $2 }
+
+stmt:
+| decl SEMI             { $1 }
+| simp SEMI             { [marks $1 parseState [1]] }
+| RETURN exp SEMI       { [marks (A.Return $2) parseState [1; 2]] }
+
+decl:
+| INT IDENT             { [A.Decl $2] }
+| INT IDENT ASSIGN exp  { [A.Decl $2; A.Assign($2, $4)] }
+
+simp:
+| lvalue asnop exp %prec ASNOP
+            { expandAsnop $1 $2 $3 parseState [1; 3] }
+
+lvalue:
+| IDENT                 { $1 }
+| LPAREN lvalue RPAREN  { $2 }
+
+exp:
+| LPAREN exp RPAREN     { $2 }
+| NUM                   { mark (A.ConstExp $1) parseState [1] }
+| IDENT                 { mark (A.Var $1) parseState [1] }
+| exp PLUS exp
+            { mark (A.OpExp(A.Plus, [$1; $3])) parseState [1; 3] }
+| exp MINUS exp
+            { mark (A.OpExp(A.Minus, [$1; $3])) parseState [1; 3] }
+| exp STAR exp
+            { mark (A.OpExp(A.Times, [$1; $3])) parseState [1; 3] }
+| exp SLASH exp
+            { mark (A.OpExp(A.DividedBy, [$1; $3])) parseState [1; 3] }
+| exp PERCENT exp
+            { mark (A.OpExp(A.Modulo, [$1; $3])) parseState [1; 3] }
+| MINUS exp %prec UNARY
+            { mark (A.OpExp(A.Negative, [$2])) parseState [1; 2] }
+
+asnop:
+| ASSIGN                { None }
+| PLUSEQ                { Some A.Plus }
+| MINUSEQ               { Some A.Minus }
+| STAREQ                { Some A.Times }
+| SLASHEQ               { Some A.DividedBy }
+| PERCENTEQ             { Some A.Modulo }
+

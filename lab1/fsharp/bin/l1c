@@ -1,0 +1,12 @@
+#!/bin/bash
+
+AFSDIR=/afs/andrew.cmu.edu/usr/amihalci/public
+DIRNAME=`readlink -f $0 | xargs dirname`
+if [ -d $AFSDIR ] ; then
+    export MONO_PATH=${AFSDIR}/powerpack/bin
+else
+    export MONO_PATH=/usr/local/lib/fsharp-r54075/lib
+fi
+
+mono --gc=sgen ${DIRNAME}/Lab1.exe $*
+

@@ -1,0 +1,3 @@
+#!/bin/csh
+
+rm *-l4 *.s *.old *.output *.result

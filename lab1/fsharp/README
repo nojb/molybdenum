@@ -1,0 +1,283 @@
+(* README
+ * Author: Ben Hamme <bhamme@andrew.cmu.edu>
+ * Author: Adam Mihalcin <amihalci@andrew.cmu.edu>
+ *)
+
+------------------------------------------------------------------------
+Welcome to 15-411!
+------------------------------------------------------------------------
+
+This is some starter code for the L1 compiler you have to build for
+Lab 1.  It contains a lexer, parser, translator, and even a code
+generator, except that the code generator creates pseudo assembly
+language with fictitious instructions and an unlimited number of
+registers.
+
+This is a translation of the SML starter code into F#, a functional
+language (with some imperative and object-oriented features) based on
+the .NET/CLI platform.  You may be wondering why anyone would bother
+writing a compiler in a different language from the default starter
+code.  We chose F# because it can use all the libraries that have
+been developed for .NET over the years.  Want a mutable hash
+table-based map?  Try System.Collections.Generic.Dictionary.  An array?
+It's built in to the language.  Moreover, F# has a fairly rich standard
+library of functional data structures, including lists, lazy
+sequences, maps, and sets.  There are also nice built-in features that
+SML doesn't have, such as generators and list comprehensions.
+
+If you read nothing else in this document, just copy the four lines
+given in "Building and Running the Compiler" (two to set $path, and two
+to add aliases) into your .cshrc.  You'll probably want the hints we
+give later in this document, though.
+
+
+------------------------------------------------------------------------
+Building and Running the Compiler
+------------------------------------------------------------------------
+
+We use three new pieces of software here: Mono, the F# compiler, and
+the F# PowerPack.  Mono is the most important non-Windows implementation
+of the CLI, and it's used to run the F# compiler (which is itself
+a .NET executable) and your compiler.
+
+CMU's AFS (unix.andrew.cmu.edu) doesn't include Mono, the F# compiler,
+or the F# PowerPack, but the two of us have already done the work
+necessary to get the compiler up and running.  Assuming that the
+amihalci account is still available at the time you read this
+(the necessary installations live in ~amihalci/public), you should be
+able to use F# without installing or modifying any of these three pieces of
+software.  We are using Mono 2.10.9 and F# 2.0, with the F# PowerPack
+version 2.0.  You just need to add the following to your .cshrc (or the
+equivalent to your favorite shell's init file):
+
+set path = ( $path `readlink -f ~amihalci`/public/mono210/bin )
+set path = ( $path `readlink -f ~amihalci`/public/fsharp20/bin )
+alias fslex 'mono ~amihalci/public/FSharpPowerPack-2.0.0.0/bin/fslex.exe'
+alias fsyacc 'mono ~amihalci/public/FSharpPowerPack-2.0.0.0/bin/fsyacc.exe'
+
+Then you should be able to run `fsharpc` to invoke the F# compiler,
+or `fsharpi` to get an interactive F# REPL, much as you might use in SML.
+Oddly enough, we get a warning about Ctrl-C support when using fsharpi,
+but that warning can be ignored.  Simply type
+
+> #quit;;
+
+to quit the REPL.
+
+To build the compiler in release mode, run
+
+$ make
+
+which executes the all target.  To build the compiler in debug mode,
+which gives you debugging symbols for better exception messages, run
+
+$ make debug
+
+To execute the release compiler, run
+
+$ bin/l1c <options> filename
+
+To execute the debug compiler, run
+
+$ debug/l1c <options> filename
+
+Running with only the -h option e.g.
+
+$ bin/l1c -h
+
+will print a list of options and positional arguments, along with their
+meanings as defined in util/Flags.fs.
+
+If you cannot make or open the REPL, you might have to install F# yourself.
+See the Makefile for some instructions, and InstallingFSharp.pdf for full
+instructions (basically a log of our own installation procedure).
+
+You might also find the line
+
+setenv MONO_PATH `readlink -f ~amihalci`/public/powerpack/bin
+
+helpful in your .cshrc or shell's init file.  This line isn't strictly
+necessary, since the l1c script takes care of this for you, but you'll
+need to set MONO_PATH if you want to use
+
+$ mono bin/Lab1.exe <options>
+
+to run the compiler without the benefit of the l1c script.
+
+
+------------------------------------------------------------------------
+Project Structure
+------------------------------------------------------------------------
+
+Each directory forms one library, which is compiled into
+Lab1.LibaryName.dll.  All modules in that libary are in the namespace
+Lab1.LibraryName, which allows you to reference a module in another
+directory cleanly by placing
+
+open Lab1.LibraryName
+
+at the top of your file and then referencing a function in that module
+with ModuleName.functionName.  Alternatively, you can place the
+line
+
+module MN = ModuleName
+
+inside your module to use MN as an alias for ModuleName, and reference
+a function or other value as MN.valueName thereafter.
+
+
+-----------------------------------------------------------------------
+Directory Contents
+-----------------------------------------------------------------------
+
+CodeGen:
+    codegen/Codegen.fs      - performs instruction selection
+    codegen/InterRep.fs     - intermediate representation
+
+The CodeGen package will contain the modules that take the intermediate
+representation after translation and perform the necessary steps to
+produce valid, linkable assembly.  That's up to you in Lab 1!
+
+
+Parse:
+    parse/Ast.fs            - abstract syntax tree representation
+    parse/FileParser.fs     - wrapper for parsing a sourcefile
+    parse/Lex.fsl           - lexer        
+    parse/Parser.fsy        - parser
+
+The Parse package contains all the modules that deal with lexing and 
+parsing the source C0 code.
+
+
+Top:
+    top/Top.fs              - entrypoint for compiler
+
+The Top package contains the entrypoint for our compiler. Top.fs ties
+all the other packages together and acts as the main routine run on
+input files.
+
+
+Trans:
+    trans/Temp.fs           - defines temporary register type
+    trans/Trans.fs          - translates AST to IR
+    trans/Tree.fs           - an intermediate representation
+
+The Trans package, translated almost word for word from the SML starter
+code, contains modules for temporary registers and representation of 
+code following parsing.
+
+
+Type:
+    type/TypeChecker.fs     - performs type checking on IR
+
+The Type package contains modules used for typechecking the intermediate
+representation of the code following parsing. Currently this only tests
+for undeclared/uninstantiated varables.
+
+
+Util:
+    util/ErrorMsg.fs        - defines a standard error message type
+    util/Flags.fs           - defines the flags available for compiler
+    util/Order.fs           - replaces the SML order type
+    util/Symbol.fs          - utilities for dealing with symbols
+
+The Util package contains the modules used throughout the various other
+packages. This includes the Order module (used to replace the SML built-
+in order type) as well as a couple modules translated directly from the
+SML starter code.
+
+
+External:
+    external/Options.cs
+
+The External package contains any modules taken from external sources.
+Currently only contains the Options.cs file.
+
+
+------------------------------------------------------------------------
+F# Documentation
+------------------------------------------------------------------------
+
+Since F# is a language from Microsoft Research, the most comprehensive
+documentation is on MSDN.  There is a full F# 3.0 language reference at
+
+http://msdn.microsoft.com/en-us/library/dd233181.aspx
+
+The version currently installed on AFS is F# 2.0, so there are a few
+differences, but the language is almost the same (the big new features
+in F# 3.0 are type providers and query expressions) and the examples
+in the newer documentation are updated more often.  Still, if you wish
+to restrict your documentation to features in F# 2.0, you should choose
+Visual Studio 2010 with the "Other Versions" link below the title of
+each page, or just visit
+
+http://msdn.microsoft.com/en-us/library/dd233181(v=vs.100).aspx
+
+Later documentation links will point to F# 3.0, though.
+
+The major functional data structures, such as lists, lazy sequences,
+immutable sets, and immutable dictionaries, are all implemented
+specifically for F#.  Library documentation is available at
+
+http://msdn.microsoft.com/en-us/library/ee353413.aspx
+
+The more general F# libraries are less useful in a compiler, but can
+still be helpful.  All the F#-specific libraries are documented at
+
+http://msdn.microsoft.com/en-us/library/ee353567.aspx
+
+Also, all the .NET standard libraries are available in F#.  The
+code samples here will primarily be in C#, which looks basically the same
+as Java, but function prototypes are at least available in F# notation.
+Here, you may need to switch to .NET Framework 4.0 documentation in
+order to get libraries that are available in Mono 2.10.9, but most
+libraries available in .NET 4.5 or later were just carried over from
+.NET 4.0.  The .NET standard library is rather big, with documentation
+based at
+
+http://msdn.microsoft.com/en-us/library/gg145045.aspx
+
+The most important classes for your work will be in the System namespace,
+with documentation at
+
+http://msdn.microsoft.com/en-us/library/system.aspx
+
+or in the System.Collections.Generic namespace, with documentation at
+
+http://msdn.microsoft.com/en-us/library/system.collections.generic.aspx
+
+The Systems.Collections.Generic namespace will prove especially useful
+when you try to squeeze performance out of your compiler.  The immutable
+collections are really nice to use, but often not sufficiently fast for
+a fast compiler to use.  One possible fix is to replace immutable
+collections with their mutable counterparts, such as
+System.Collections.Generic.Dictionary<K, V> as a mapping from keys t
+values, or System.Collections.Generic.HashSet<T> as a set of values.
+
+
+------------------------------------------------------------------------
+External Libraries We Used
+------------------------------------------------------------------------
+
+Of course, this compiler implementation relies on Mono and F#, along with
+the F# PowerPack.
+
+We used the Mono.Options library, which consists of the single file
+external/Options.cs.  You can see the latest version, with commit
+history, at http://goo.gl/O5EjH, which is short for
+https://github.com/mono/mono/blob/master
+            /mcs/class/Mono.Options/Mono.Options/Options.cs
+The Mono.Options library is under the MIT license.  The only file that
+directly references a class in Mono.Options is util/Flags.fs.
+
+To get started with parsing, we used the F# Parsed Language Starter.
+We did not copy this code, nor did we compile this code and use it
+as a library.  However, we did use it as a sample of how to use FsLex
+and FsYacc.  You can download this sample from http://goo.gl/QAZfr,
+which is short for
+http://visualstudiogallery.msdn.microsoft.com
+            /a075ff98-7e6f-47ce-a23c-838c1e488046/
+There is no license given, but this project is explicitly described
+as a sample/starter project for FsLex and FsYacc.  The files that take
+inspiration from this project are parse/Lex.fsl and parse/Parse.fsy.
+

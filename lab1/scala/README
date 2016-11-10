@@ -1,0 +1,113 @@
+(* README
+ * Author: Robin Steiger
+ * Author(revision): Andre Platzer
+ *)
+
+-----------------------------------------------------------------------
+Welcome to 15-411 F10!
+-----------------------------------------------------------------------
+
+Bug reports to the instructor Andre Platzer <aplatzer@cs.cmu.edu> are
+particularly welcome and will be noted in the extra credit category.
+For the scala starter code, we thankfully acknowledge the help of Robin
+Steiger.
+
+------------------------------------------------------------------------
+Source Files
+------------------------------------------------------------------------
+The following are the files for the L1 compiler
+
+README               -- this file
+
+Makefile             -- makefile for the compiler
+
+bin/
+  l1c                -- The script that will run the main class (top.L1Compiler)
+  sbt                -- A Simple Build Tool (SBT) that you might find useful
+                     -- as an alternative to make. Note that make will be used
+                     -- by autolab.
+out/
+  <package name>/    -- Here will be the compiled .class files
+project/
+  <...>              -- Configuration files for SBT, if you use it
+src/
+  frontend/
+    Tokens.scala     -- L1 lexical Tokens
+    Scanner.scala    -- L1 Lexer
+    Parser.scala     -- L1 Parser
+    Trees.scala      -- L1 abstract syntax trees (AST's)
+  backend/
+    Assembly.scala         -- Assembly language
+    Generator.scala  -- Code generation
+  top/
+    FileReader.scala -- A wrapper to read source files
+    Report.scala     -- Count and report errors
+    Analyser.scala   -- Verify static semantics
+    L1Compiler.scala -- Main method that passes the input through the
+						            different compilation phases
+                        
+------------------------------------------------------------------------
+Building the project using the Makefile
+------------------------------------------------------------------------
+
+For a quick test
+
+% make l1c
+    Compiles the L1Compiler.
+
+% bin/l1c ../tests/test1.L1
+    Runs the L1Compiler.
+    This should produce ../tests/test1.s in x86-64 assembly
+
+% make clean
+    Deletes all .class files
+
+------------------------------------------------------------------------
+Building the project using SBT (Simple build tool)
+------------------------------------------------------------------------
+
+See also http://code.google.com/p/simple-build-tool/wiki/RunningSbt
+
+% bin/sbt compile
+    Compiles the L1Compiler (generates .class files)
+    
+% bin/sbt "run ../tests/test.l1"
+    Runs the L1Compiler.
+    This should produce ../tests/test1.s in x86-64 assembly
+
+% bin/sbt clean
+    Deletes all .class files
+  
+% bin/sbt
+    Enters the interactive mode.
+
+------------------------------------------------------------------------
+Scala Language and Library Notes
+------------------------------------------------------------------------
+
+Robin mainly used mutable sets and maps, for the ease of implementation and
+to avoid unreadable fold constructs. He often used for loops for manipulations.
+In Scala for loops are syntactic sugar for other operations on list-like
+(Iterable) objects. If the for loop is only evaluated for side-effects,
+then this is equivalent to using foreach. If the for loop returns a value
+(functional for loops) then map, flatMap and filter operations are used.
+
+Example
+
+for (instruction <- code; register <- instruction.usedRegisters) {
+  ...
+}
+
+Is equivalent to
+
+code foreach { instruction =>
+  instruction.usedRegisters foreach { register =>
+    ...
+  }
+}
+     
+For further reference, see
+http://www.scala-lang.org/
+
+The Scala API can be found at
+http://www.scala-lang.org/docu/files/api/index.html
